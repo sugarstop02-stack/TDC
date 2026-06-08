@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TCD Tracker — Control</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Share+Tech+Mono&family=Bebas+Neue&display=swap');
+
+  :root {
+    --bg: #0a0a0a;
+    --bg2: #111111;
+    --bg3: #181818;
+    --neon-orange: #00cfff;
+    --neon-green: #39ff14;
+    --neon-yellow: #ffe600;
+    --neon-pink: #bf5fff;
+    --text: #e8e8e8;
+    --text-dim: #888;
+    --border: #2a2a2a;
+    --font-marker: 'Permanent Marker', cursive;
+    --font-mono: 'Share Tech Mono', monospace;
+    --font-block: 'Bebas Neue', sans-serif;
+    --font-scale: 1;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(ellipse 80% 60% at 10% 20%, rgba(0,207,255,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 80% at 90% 80%, rgba(191,95,255,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse 70% 50% at 50% 50%, rgba(57,255,20,0.02) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  #app {
+    position: relative;
+    z-index: 1;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 16px;
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 24px 0 16px;
+    border-bottom: 2px solid var(--neon-orange);
+    margin-bottom: 20px;
+    position: relative;
+  }
+
+  .header-tag {
+    font-family: var(--font-marker);
+    font-size: calc(2.6rem * var(--font-scale));
+    color: var(--neon-orange);
+    text-shadow:
+      0 0 10px rgba(0,207,255,0.8),
+      0 0 30px rgba(0,207,255,0.4),
+      3px 3px 0 rgba(0,0,0,0.8);
+    line-height: 1;
+    letter-spacing: 2px;
+  }
+
+  .header-sub {
+    font-family: var(--font-mono);
+    font-size: calc(0.7rem * var(--font-scale));
+    color: var(--text-dim);
+    margin-top: 6px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .header-drip {
+    position: absolute;
+    right: 0;
+    top: 20px;
+    font-family: var(--font-block);
+    font-size: calc(0.85rem * var(--font-scale));
+    color: var(--neon-pink);
+    letter-spacing: 4px;
+    text-shadow: 0 0 8px rgba(191,95,255,0.6);
+  }
+
+  nav {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .nav-btn {
+    font-family: var(--font-marker);
+    font-size: calc(0.85rem * var(--font-scale));
+    padding: 8px 14px;
+    border: 2px solid;
+    background: transparent;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .nav-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .nav-btn:hover::before { opacity: 0.1; }
+  .nav-btn:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+
+  .nav-btn[data-tab="log"] { border-color: var(--neon-orange); color: var(--neon-orange); }
+  .nav-btn[data-tab="log"]::before { background: var(--neon-orange); }
+  .nav-btn[data-tab="log"].active { background: rgba(0,207,255,0.12); box-shadow: 0 0 12px rgba(0,207,255,0.3); }
+
+  .nav-btn[data-tab="history"] { border-color: var(--neon-green); color: var(--neon-green); }
+  .nav-btn[data-tab="history"]::before { background: var(--neon-green); }
+  .nav-btn[data-tab="history"].active { background: rgba(57,255,20,0.1); box-shadow: 0 0 12px rgba(57,255,20,0.2); }
+
+  .nav-btn[data-tab="export"] { border-color: var(--neon-yellow); color: var(--neon-yellow); }
+  .nav-btn[data-tab="export"]::before { background: var(--neon-yellow); }
+  .nav-btn[data-tab="export"].active { background: rgba(255,230,0,0.1); box-shadow: 0 0 12px rgba(255,230,0,0.2); }
+
+  .nav-btn[data-tab="settings"] { border-color: var(--neon-pink); color: var(--neon-pink); }
+  .nav-btn[data-tab="settings"]::before { background: var(--neon-pink); }
+  .nav-btn[data-tab="settings"].active { background: rgba(191,95,255,0.1); box-shadow: 0 0 12px rgba(191,95,255,0.2); }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .section-head {
+    font-family: var(--font-marker);
+    font-size: calc(1.1rem * var(--font-scale));
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-head .tag-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .field-group { margin-bottom: 16px; }
+
+  label {
+    display: block;
+    font-size: calc(0.72rem * var(--font-scale));
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+  }
+
+  input[type="text"], textarea, select {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: calc(0.9rem * var(--font-scale));
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+    border-radius: 2px;
+  }
+
+  input[type="text"]:focus, textarea:focus, select:focus {
+    border-color: var(--neon-orange);
+    box-shadow: 0 0 0 1px rgba(0,207,255,0.2);
+  }
+
+  textarea { resize: vertical; min-height: 70px; }
+
+  .slider-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .slider-val {
+    font-family: var(--font-block);
+    font-size: calc(1.6rem * var(--font-scale));
+    min-width: 32px;
+    text-align: center;
+  }
+
+  input[type="range"] {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 4px;
+    background: var(--border);
+    outline: none;
+    border-radius: 2px;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid var(--bg);
+    transition: transform 0.1s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+  .range-orange::-webkit-slider-thumb { background: var(--neon-orange); box-shadow: 0 0 6px rgba(0,207,255,0.6); }
+  .range-green::-webkit-slider-thumb { background: var(--neon-green); box-shadow: 0 0 6px rgba(57,255,20,0.6); }
+  .range-orange { accent-color: var(--neon-orange); }
+  .range-green { accent-color: var(--neon-green); }
+
+  .chip-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .chip {
+    font-family: var(--font-mono);
+    font-size: calc(0.75rem * var(--font-scale));
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.12s;
+    letter-spacing: 1px;
+  }
+
+  .chip:hover { border-color: var(--neon-yellow); color: var(--neon-yellow); }
+  .chip.selected { border-color: var(--neon-yellow); color: var(--neon-yellow); background: rgba(255,230,0,0.08); box-shadow: 0 0 6px rgba(255,230,0,0.2); }
+  .chip:focus-visible { outline: 2px solid white; }
+
+  .btn-submit {
+    width: 100%;
+    padding: 14px;
+    font-family: var(--font-marker);
+    font-size: calc(1.1rem * var(--font-scale));
+    border: 2px solid var(--neon-green);
+    background: rgba(57,255,20,0.08);
+    color: var(--neon-green);
+    cursor: pointer;
+    letter-spacing: 2px;
+    text-shadow: 0 0 8px rgba(57,255,20,0.4);
+    box-shadow: 0 0 12px rgba(57,255,20,0.15);
+    transition: all 0.15s;
+    margin-top: 8px;
+  }
+
+  .btn-submit:hover {
+    background: rgba(57,255,20,0.15);
+    box-shadow: 0 0 20px rgba(57,255,20,0.3);
+    transform: translateY(-1px);
+  }
+
+  .btn-submit:active { transform: translateY(0); }
+  .btn-submit:focus-visible { outline: 2px solid white; }
+
+  .flash {
+    background: rgba(57,255,20,0.1);
+    border: 1px solid var(--neon-green);
+    color: var(--neon-green);
+    font-family: var(--font-mono);
+    font-size: calc(0.8rem * var(--font-scale));
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    display: none;
+    letter-spacing: 1px;
+  }
+
+  .flash.visible { display: block; animation: fadeout 3s forwards; }
+  @keyframes fadeout { 0%,70%{opacity:1} 100%{opacity:0} }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 20px 0;
+    position: relative;
+  }
+
+  .divider::after {
+    content: attr(data-label);
+    position: absolute;
+    top: -9px;
+    left: 12px;
+    background: var(--bg);
+    padding: 0 8px;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── CONTEXT FIELD HIGHLIGHT ── */
+  .context-box {
+    background: var(--bg3);
+    border: 1px solid rgba(0,207,255,0.2);
+    border-left: 3px solid var(--neon-orange);
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+
+  .context-box .context-label {
+    font-size: calc(0.68rem * var(--font-scale));
+    color: var(--neon-orange);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    font-family: var(--font-mono);
+  }
+
+  .entry-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--neon-orange);
+    padding: 14px;
+    margin-bottom: 10px;
+    position: relative;
+    transition: border-color 0.15s;
+  }
+
+  .entry-card:hover { border-left-color: var(--neon-pink); }
+
+  .entry-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .entry-who {
+    font-family: var(--font-marker);
+    font-size: calc(1rem * var(--font-scale));
+    color: var(--neon-orange);
+    text-shadow: 0 0 6px rgba(0,207,255,0.4);
+  }
+
+  .entry-time {
+    font-size: calc(0.68rem * var(--font-scale));
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  .entry-scores {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .score-pill {
+    font-family: var(--font-block);
+    font-size: calc(0.9rem * var(--font-scale));
+    letter-spacing: 2px;
+  }
+
+  .score-pill.before { color: var(--neon-pink); }
+  .score-pill.after { color: var(--neon-green); }
+  .score-pill.delta { color: var(--neon-yellow); }
+
+  .entry-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 8px;
+  }
+
+  .tag-badge {
+    font-size: calc(0.68rem * var(--font-scale));
+    padding: 2px 7px;
+    border: 1px solid var(--neon-yellow);
+    color: var(--neon-yellow);
+    letter-spacing: 1px;
+    border-radius: 1px;
+  }
+
+  .entry-notes {
+    font-size: calc(0.78rem * var(--font-scale));
+    color: var(--text-dim);
+    line-height: 1.5;
+    font-style: italic;
+  }
+
+  .entry-delete {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: transparent;
+    border: 1px solid #333;
+    color: #555;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    transition: all 0.12s;
+  }
+
+  .entry-delete:hover { border-color: var(--neon-pink); color: var(--neon-pink); }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--text-dim);
+  }
+
+  .empty-tag {
+    font-family: var(--font-marker);
+    font-size: calc(1.8rem * var(--font-scale));
+    color: #2a2a2a;
+    display: block;
+    margin-bottom: 12px;
+    text-shadow: 1px 1px 0 #1a1a1a;
+  }
+
+  .export-block {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+
+  .export-block h3 {
+    font-family: var(--font-marker);
+    font-size: calc(0.95rem * var(--font-scale));
+    color: var(--neon-yellow);
+    margin-bottom: 8px;
+  }
+
+  .export-block p {
+    font-size: calc(0.78rem * var(--font-scale));
+    color: var(--text-dim);
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+
+  .btn-export {
+    padding: 10px 18px;
+    font-family: var(--font-marker);
+    font-size: calc(0.88rem * var(--font-scale));
+    border: 2px solid;
+    background: transparent;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+    margin-right: 8px;
+    margin-bottom: 6px;
+  }
+
+  .btn-export.yellow { border-color: var(--neon-yellow); color: var(--neon-yellow); }
+  .btn-export.yellow:hover { background: rgba(255,230,0,0.1); }
+  .btn-export.pink { border-color: var(--neon-pink); color: var(--neon-pink); }
+  .btn-export.pink:hover { background: rgba(191,95,255,0.1); }
+  .btn-export:focus-visible { outline: 2px solid white; }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .stat-box {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 14px 12px;
+    text-align: center;
+  }
+
+  .stat-val {
+    font-family: var(--font-block);
+    font-size: calc(2rem * var(--font-scale));
+    display: block;
+  }
+
+  .stat-label {
+    font-size: calc(0.65rem * var(--font-scale));
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-top: 2px;
+    display: block;
+  }
+
+  .filter-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+
+  .filter-btn {
+    font-family: var(--font-mono);
+    font-size: calc(0.72rem * var(--font-scale));
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.12s;
+  }
+
+  .filter-btn.active { border-color: var(--neon-green); color: var(--neon-green); background: rgba(57,255,20,0.06); }
+  .filter-btn:focus-visible { outline: 2px solid white; }
+
+  .settings-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .settings-label { font-size: calc(0.82rem * var(--font-scale)); color: var(--text); }
+  .settings-sub { font-size: calc(0.68rem * var(--font-scale)); color: var(--text-dim); margin-top: 2px; }
+
+  .toggle { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+
+  .toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: var(--border);
+    border-radius: 24px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    left: 3px;
+    top: 3px;
+    background: #555;
+    border-radius: 50%;
+    transition: 0.2s;
+  }
+
+  .toggle input:checked + .toggle-slider { background: rgba(57,255,20,0.2); border: 1px solid var(--neon-green); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(20px); background: var(--neon-green); }
+  .toggle input:focus-visible + .toggle-slider { outline: 2px solid white; }
+
+  .font-controls { display: flex; gap: 6px; }
+
+  .font-btn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    color: var(--text);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    transition: all 0.12s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .font-btn:hover { border-color: var(--neon-pink); color: var(--neon-pink); }
+
+  .danger-zone {
+    margin-top: 24px;
+    border: 1px solid rgba(191,95,255,0.3);
+    padding: 16px;
+  }
+
+  .danger-zone h3 {
+    font-family: var(--font-marker);
+    color: var(--neon-pink);
+    font-size: calc(0.9rem * var(--font-scale));
+    margin-bottom: 8px;
+  }
+
+  .btn-danger {
+    padding: 8px 16px;
+    font-family: var(--font-marker);
+    font-size: calc(0.85rem * var(--font-scale));
+    border: 1px solid var(--neon-pink);
+    background: transparent;
+    color: var(--neon-pink);
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+  }
+
+  .btn-danger:hover { background: rgba(191,95,255,0.1); }
+
+  .privacy-notice {
+    background: var(--bg3);
+    border: 1px solid #2a2a2a;
+    border-left: 3px solid var(--neon-green);
+    padding: 12px 14px;
+    margin-bottom: 20px;
+    font-size: calc(0.72rem * var(--font-scale));
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  .privacy-notice strong { color: var(--neon-green); }
+
+  /* Control group badge */
+  .control-badge {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: calc(0.65rem * var(--font-scale));
+    padding: 3px 8px;
+    border: 1px solid var(--neon-orange);
+    color: var(--neon-orange);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+
+  .reduce-motion *, .reduce-motion *::before, .reduce-motion *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .high-contrast {
+    --bg: #000; --bg2: #000; --bg3: #111;
+    --text: #fff; --text-dim: #ccc; --border: #555;
+  }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--neon-orange); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="header-tag">TCD Tracker</div>
+    <div class="header-sub">Control Group — Single-Mind Session Log</div>
+    <div class="header-drip">BY QUESITO</div>
+  </header>
+
+  <nav role="navigation" aria-label="Main navigation">
+    <button class="nav-btn active" data-tab="log" onclick="showTab('log')" aria-pressed="true">+ Log Session</button>
+    <button class="nav-btn" data-tab="history" onclick="showTab('history')" aria-pressed="false">History</button>
+    <button class="nav-btn" data-tab="export" onclick="showTab('export')" aria-pressed="false">Export</button>
+    <button class="nav-btn" data-tab="settings" onclick="showTab('settings')" aria-pressed="false">Settings</button>
+  </nav>
+
+  <div id="flash" class="flash" role="status" aria-live="polite"></div>
+
+  <!-- ── LOG PANEL ── -->
+  <section class="panel active" id="panel-log" aria-labelledby="log-title">
+
+    <div class="privacy-notice">
+      <strong>🔒 Local only.</strong> All data stays on your device in localStorage. Nothing is sent anywhere. Clear your browser data to erase everything.
+    </div>
+
+    <div class="control-badge">⬡ Control Group Version</div>
+
+    <div class="section-head">
+      <span class="tag-dot" style="background:var(--neon-orange)"></span>
+      <span id="log-title" style="color:var(--neon-orange)">New Session</span>
+    </div>
+
+    <!-- STRESS CONTEXT — replaces fronting/trauma holder -->
+    <div class="context-box">
+      <div class="context-label">Stress Context</div>
+
+      <div class="field-group">
+        <label for="situation-input">What is the general situation? (optional)</label>
+        <input type="text" id="situation-input" placeholder="e.g. work deadline, argument, medical anxiety, daily baseline..." autocomplete="off" />
+      </div>
+
+      <div class="field-group">
+        <label>Stress type</label>
+        <div class="chip-grid" id="stress-type-chips" role="group" aria-label="Stress type">
+          <button class="chip" data-val="acute" onclick="selectChip('stressType', this)">Acute / sudden</button>
+          <button class="chip" data-val="chronic" onclick="selectChip('stressType', this)">Chronic / ongoing</button>
+          <button class="chip" data-val="trauma-response" onclick="selectChip('stressType', this)">Trauma response</button>
+          <button class="chip" data-val="baseline" onclick="selectChip('stressType', this)">Baseline check-in</button>
+          <button class="chip" data-val="unknown" onclick="selectChip('stressType', this)">Unknown / unsure</button>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label>Current life load</label>
+        <div class="chip-grid" id="load-chips" role="group" aria-label="Current life load">
+          <button class="chip" data-val="low" onclick="selectChip('load', this)">Low</button>
+          <button class="chip" data-val="moderate" onclick="selectChip('load', this)">Moderate</button>
+          <button class="chip" data-val="high" onclick="selectChip('load', this)">High</button>
+          <button class="chip" data-val="crisis" onclick="selectChip('load', this)">Crisis level</button>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider" data-label="Before regulation">
+
+    <div class="field-group">
+      <label for="trigger-input">Trigger description (optional)</label>
+      <input type="text" id="trigger-input" placeholder="What triggered this session?" autocomplete="off" />
+    </div>
+
+    <div class="field-group">
+      <label for="before-slider">Cortisol / distress intensity — BEFORE <span id="before-label">(1 = calm, 10 = crisis)</span></label>
+      <div class="slider-wrap">
+        <input type="range" id="before-slider" class="range-orange" min="1" max="10" value="5"
+          oninput="updateSlider('before')" aria-valuemin="1" aria-valuemax="10" aria-valuenow="5" />
+        <span class="slider-val" id="before-val" style="color:var(--neon-orange)">5</span>
+      </div>
+    </div>
+
+    <hr class="divider" data-label="Regulation">
+
+    <div class="field-group">
+      <label>Regulation methods used (select all that apply)</label>
+      <div class="chip-grid" id="reg-chips" role="group" aria-label="Regulation methods">
+        <button class="chip" data-val="grounding" onclick="toggleChip('reg', this)">Grounding</button>
+        <button class="chip" data-val="yawning" onclick="toggleChip('reg', this)">Yawning</button>
+        <button class="chip" data-val="breathing" onclick="toggleChip('reg', this)">Breathing</button>
+        <button class="chip" data-val="movement" onclick="toggleChip('reg', this)">Movement</button>
+        <button class="chip" data-val="music" onclick="toggleChip('reg', this)">Music</button>
+        <button class="chip" data-val="art" onclick="toggleChip('reg', this)">Art / Writing</button>
+        <button class="chip" data-val="social" onclick="toggleChip('reg', this)">Social support</button>
+        <button class="chip" data-val="rest" onclick="toggleChip('reg', this)">Rest / sleep</button>
+        <button class="chip" data-val="other" onclick="toggleChip('reg', this)">Other</button>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label for="reg-time-input">Approximate time in regulation (minutes)</label>
+      <input type="text" id="reg-time-input" placeholder="e.g. 10" inputmode="numeric" />
+    </div>
+
+    <hr class="divider" data-label="After regulation">
+
+    <div class="field-group">
+      <label for="after-slider">Cortisol / distress intensity — AFTER</label>
+      <div class="slider-wrap">
+        <input type="range" id="after-slider" class="range-green" min="1" max="10" value="5"
+          oninput="updateSlider('after')" aria-valuemin="1" aria-valuemax="10" aria-valuenow="5" />
+        <span class="slider-val" id="after-val" style="color:var(--neon-green)">5</span>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>Session outcome</label>
+      <div class="chip-grid" id="outcome-chips" role="group" aria-label="Session outcome">
+        <button class="chip" data-val="significantly-reduced" onclick="selectChip('outcome', this)">Significantly reduced</button>
+        <button class="chip" data-val="somewhat-reduced" onclick="selectChip('outcome', this)">Somewhat reduced</button>
+        <button class="chip" data-val="no-change" onclick="selectChip('outcome', this)">No change</button>
+        <button class="chip" data-val="escalated" onclick="selectChip('outcome', this)">Escalated</button>
+      </div>
+    </div>
+
+    <hr class="divider" data-label="Notes">
+
+    <div class="field-group">
+      <label for="notes-input">Session notes (optional)</label>
+      <textarea id="notes-input" placeholder="Anything else worth documenting — physical symptoms, what helped, what didn't, context that might affect the data..."></textarea>
+    </div>
+
+    <button class="btn-submit" onclick="saveSession()" aria-label="Save session">
+      ▸ SAVE SESSION
+    </button>
+
+  </section>
+
+  <!-- ── HISTORY PANEL ── -->
+  <section class="panel" id="panel-history" aria-labelledby="history-title">
+
+    <div class="section-head">
+      <span class="tag-dot" style="background:var(--neon-green)"></span>
+      <span id="history-title" style="color:var(--neon-green)">Session History</span>
+    </div>
+
+    <div class="stats-grid" id="stats-grid" aria-label="Summary statistics"></div>
+
+    <div class="filter-bar" role="group" aria-label="Filter sessions">
+      <button class="filter-btn active" onclick="filterHistory('all', this)">ALL</button>
+      <button class="filter-btn" onclick="filterHistory('acute', this)">ACUTE</button>
+      <button class="filter-btn" onclick="filterHistory('chronic', this)">CHRONIC</button>
+      <button class="filter-btn" onclick="filterHistory('trauma', this)">TRAUMA RESPONSE</button>
+      <button class="filter-btn" onclick="filterHistory('reduced', this)">REDUCED</button>
+      <button class="filter-btn" onclick="filterHistory('escalated', this)">ESCALATED</button>
+    </div>
+
+    <div id="history-list" aria-live="polite" aria-label="Session entries"></div>
+
+  </section>
+
+  <!-- ── EXPORT PANEL ── -->
+  <section class="panel" id="panel-export" aria-labelledby="export-title">
+
+    <div class="section-head">
+      <span class="tag-dot" style="background:var(--neon-yellow)"></span>
+      <span id="export-title" style="color:var(--neon-yellow)">Export Data</span>
+    </div>
+
+    <div class="export-block">
+      <h3>JSON Export</h3>
+      <p>Full raw data. Use this to back up your sessions, share with researchers, or import into another tool.</p>
+      <button class="btn-export yellow" onclick="exportJSON()" aria-label="Export as JSON">Export JSON</button>
+    </div>
+
+    <div class="export-block">
+      <h3>CSV Export</h3>
+      <p>Spreadsheet-friendly. Each session is one row. Good for analysis or statistical software.</p>
+      <button class="btn-export yellow" onclick="exportCSV()" aria-label="Export as CSV">Export CSV</button>
+    </div>
+
+    <div class="export-block">
+      <h3>Research Summary</h3>
+      <p>Generates a plain-text summary of patterns: average intensity reduction, most effective regulation methods, breakdown by stress type. Designed to be paired with TCD Tracker (plural) data for comparison.</p>
+      <button class="btn-export yellow" onclick="exportSummary()" aria-label="Generate research summary">Generate Summary</button>
+      <div id="summary-output" style="margin-top:12px; display:none;">
+        <textarea id="summary-text" style="width:100%; height:200px; font-size:0.78rem;" readonly></textarea>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ── SETTINGS PANEL ── -->
+  <section class="panel" id="panel-settings" aria-labelledby="settings-title">
+
+    <div class="section-head">
+      <span class="tag-dot" style="background:var(--neon-pink)"></span>
+      <span id="settings-title" style="color:var(--neon-pink)">Settings</span>
+    </div>
+
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">Font size</div>
+        <div class="settings-sub">Adjust text size across the app</div>
+      </div>
+      <div class="font-controls">
+        <button class="font-btn" onclick="adjustFont(-0.1)" aria-label="Decrease font size">A−</button>
+        <button class="font-btn" onclick="adjustFont(0.1)" aria-label="Increase font size">A+</button>
+      </div>
+    </div>
+
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">High contrast mode</div>
+        <div class="settings-sub">Increases border and text contrast</div>
+      </div>
+      <label class="toggle" aria-label="Toggle high contrast">
+        <input type="checkbox" id="toggle-contrast" onchange="toggleContrast(this)" />
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">Reduce motion</div>
+        <div class="settings-sub">Disables animations and transitions</div>
+      </div>
+      <label class="toggle" aria-label="Toggle reduce motion">
+        <input type="checkbox" id="toggle-motion" onchange="toggleMotion(this)" />
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <div class="danger-zone">
+      <h3>⚠ Danger Zone</h3>
+      <p style="font-size:calc(0.75rem * var(--font-scale)); color:var(--text-dim); margin-bottom:12px; line-height:1.5;">
+        Permanently deletes all session data. No undo.
+      </p>
+      <button class="btn-danger" onclick="clearAllData()" aria-label="Clear all data">Clear all data</button>
+    </div>
+
+  </section>
+
+</div>
+
+<script>
+  let sessions = JSON.parse(localStorage.getItem('tcd-control-sessions') || '[]');
+  let settings = JSON.parse(localStorage.getItem('tcd-control-settings') || '{"fontScale":1,"highContrast":false,"reduceMotion":false}');
+  let currentFilter = 'all';
+
+  const chipSelections = { stressType: null, load: null, outcome: null };
+  const chipMulti = { reg: [] };
+
+  function init() {
+    applySettings();
+    renderHistory();
+  }
+
+  function showTab(tab) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-pressed', 'false');
+    });
+    document.getElementById('panel-' + tab).classList.add('active');
+    const btn = document.querySelector(`.nav-btn[data-tab="${tab}"]`);
+    btn.classList.add('active');
+    btn.setAttribute('aria-pressed', 'true');
+    if (tab === 'history') renderHistory();
+  }
+
+  function updateSlider(which) {
+    const slider = document.getElementById(which + '-slider');
+    const val = slider.value;
+    document.getElementById(which + '-val').textContent = val;
+    slider.setAttribute('aria-valuenow', val);
+  }
+
+  function selectChip(group, btn) {
+    document.querySelectorAll(`#${group}-chips .chip, #stress-type-chips .chip, #load-chips .chip, #outcome-chips .chip`);
+    // scope to the clicked button's parent
+    btn.closest('.chip-grid').querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+    btn.classList.add('selected');
+    chipSelections[group] = btn.dataset.val;
+  }
+
+  function toggleChip(group, btn) {
+    btn.classList.toggle('selected');
+    const val = btn.dataset.val;
+    const arr = chipMulti[group];
+    const idx = arr.indexOf(val);
+    if (idx === -1) arr.push(val);
+    else arr.splice(idx, 1);
+  }
+
+  function saveSession() {
+    const situation = document.getElementById('situation-input').value.trim();
+
+    const session = {
+      id: Date.now(),
+      ts: new Date().toISOString(),
+      situation,
+      stressType: chipSelections.stressType,
+      lifeLoad: chipSelections.load,
+      trigger: document.getElementById('trigger-input').value.trim(),
+      before: parseInt(document.getElementById('before-slider').value),
+      after: parseInt(document.getElementById('after-slider').value),
+      delta: parseInt(document.getElementById('before-slider').value) - parseInt(document.getElementById('after-slider').value),
+      regMethods: [...chipMulti.reg],
+      regTime: document.getElementById('reg-time-input').value.trim(),
+      outcome: chipSelections.outcome,
+      notes: document.getElementById('notes-input').value.trim(),
+    };
+
+    sessions.unshift(session);
+    localStorage.setItem('tcd-control-sessions', JSON.stringify(sessions));
+    showFlash('✓ Session saved.', 'var(--neon-green)');
+    resetForm();
+  }
+
+  function resetForm() {
+    document.getElementById('situation-input').value = '';
+    document.getElementById('trigger-input').value = '';
+    document.getElementById('before-slider').value = 5;
+    document.getElementById('after-slider').value = 5;
+    document.getElementById('before-val').textContent = 5;
+    document.getElementById('after-val').textContent = 5;
+    document.getElementById('reg-time-input').value = '';
+    document.getElementById('notes-input').value = '';
+    document.querySelectorAll('.chip.selected').forEach(c => c.classList.remove('selected'));
+    chipSelections.stressType = null;
+    chipSelections.load = null;
+    chipSelections.outcome = null;
+    chipMulti.reg = [];
+  }
+
+  function showFlash(msg, color) {
+    const el = document.getElementById('flash');
+    el.textContent = msg;
+    el.style.borderColor = color || 'var(--neon-green)';
+    el.style.color = color || 'var(--neon-green)';
+    el.style.background = 'rgba(0,0,0,0.3)';
+    el.classList.remove('visible');
+    void el.offsetWidth;
+    el.classList.add('visible');
+  }
+
+  function filterHistory(filter, btn) {
+    currentFilter = filter;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const list = document.getElementById('history-list');
+    const grid = document.getElementById('stats-grid');
+
+    let filtered = sessions;
+    if (currentFilter === 'acute') filtered = sessions.filter(s => s.stressType === 'acute');
+    if (currentFilter === 'chronic') filtered = sessions.filter(s => s.stressType === 'chronic');
+    if (currentFilter === 'trauma') filtered = sessions.filter(s => s.stressType === 'trauma-response');
+    if (currentFilter === 'reduced') filtered = sessions.filter(s => s.delta > 0);
+    if (currentFilter === 'escalated') filtered = sessions.filter(s => s.delta < 0);
+
+    if (sessions.length > 0) {
+      const total = sessions.length;
+      const avgBefore = (sessions.reduce((a,s)=>a+s.before,0)/total).toFixed(1);
+      const avgAfter = (sessions.reduce((a,s)=>a+s.after,0)/total).toFixed(1);
+      const avgDelta = (sessions.reduce((a,s)=>a+s.delta,0)/total).toFixed(1);
+      const pctReduced = ((sessions.filter(s=>s.delta>0).length/total)*100).toFixed(0);
+
+      grid.innerHTML = `
+        <div class="stat-box"><span class="stat-val" style="color:var(--neon-orange)">${total}</span><span class="stat-label">Sessions</span></div>
+        <div class="stat-box"><span class="stat-val" style="color:var(--neon-pink)">${avgBefore}</span><span class="stat-label">Avg Before</span></div>
+        <div class="stat-box"><span class="stat-val" style="color:var(--neon-green)">${avgAfter}</span><span class="stat-label">Avg After</span></div>
+        <div class="stat-box"><span class="stat-val" style="color:var(--neon-yellow)">${avgDelta > 0 ? '↓' : avgDelta < 0 ? '↑' : '—'}${Math.abs(avgDelta)}</span><span class="stat-label">Avg Reduction</span></div>
+        <div class="stat-box"><span class="stat-val" style="color:var(--neon-green)">${pctReduced}%</span><span class="stat-label">Sessions Reduced</span></div>
+      `;
+    } else {
+      grid.innerHTML = '';
+    }
+
+    if (filtered.length === 0) {
+      list.innerHTML = `<div class="empty-state"><span class="empty-tag">no data yet</span><span style="font-size:0.8rem">Log your first session to start tracking.</span></div>`;
+      return;
+    }
+
+    list.innerHTML = filtered.map(s => {
+      const date = new Date(s.ts);
+      const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      const deltaColor = s.delta > 0 ? 'var(--neon-green)' : s.delta < 0 ? 'var(--neon-pink)' : 'var(--text-dim)';
+      const deltaSign = s.delta > 0 ? '↓' : s.delta < 0 ? '↑' : '→';
+      const label = s.situation || s.stressType || 'Session';
+
+      return `
+        <div class="entry-card" role="article" aria-label="Session: ${escHtml(label)}">
+          <button class="entry-delete" onclick="deleteSession(${s.id})" aria-label="Delete session">✕</button>
+          <div class="entry-meta">
+            <span class="entry-who">${escHtml(label)}</span>
+            <span class="entry-time">${dateStr}</span>
+          </div>
+          <div class="entry-scores">
+            <span class="score-pill before">BEFORE: ${s.before}</span>
+            <span class="score-pill after">AFTER: ${s.after}</span>
+            <span class="score-pill delta" style="color:${deltaColor}">${deltaSign}${Math.abs(s.delta)} pts</span>
+            ${s.regTime ? `<span class="score-pill" style="color:var(--text-dim)">${s.regTime}min</span>` : ''}
+          </div>
+          <div class="entry-tags">
+            ${s.stressType ? `<span class="tag-badge" style="border-color:var(--neon-orange);color:var(--neon-orange)">${s.stressType}</span>` : ''}
+            ${s.lifeLoad ? `<span class="tag-badge" style="border-color:var(--neon-pink);color:var(--neon-pink)">load: ${s.lifeLoad}</span>` : ''}
+            ${s.outcome ? `<span class="tag-badge">${s.outcome}</span>` : ''}
+            ${s.regMethods.map(r=>`<span class="tag-badge" style="border-color:var(--neon-green);color:var(--neon-green)">${r}</span>`).join('')}
+          </div>
+          ${s.trigger ? `<div class="entry-notes">Trigger: ${escHtml(s.trigger)}</div>` : ''}
+          ${s.notes ? `<div class="entry-notes" style="margin-top:6px">${escHtml(s.notes)}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  function deleteSession(id) {
+    if (!confirm('Delete this session? This cannot be undone.')) return;
+    sessions = sessions.filter(s => s.id !== id);
+    localStorage.setItem('tcd-control-sessions', JSON.stringify(sessions));
+    renderHistory();
+  }
+
+  function exportJSON() {
+    download('tcd-control-sessions.json', JSON.stringify(sessions, null, 2), 'application/json');
+  }
+
+  function exportCSV() {
+    const headers = ['date','situation','stress_type','life_load','trigger','before','after','delta','reg_methods','reg_time_min','outcome','notes'];
+    const rows = sessions.map(s => [
+      new Date(s.ts).toLocaleString(),
+      s.situation||'', s.stressType||'', s.lifeLoad||'',
+      s.trigger||'', s.before, s.after, s.delta,
+      s.regMethods.join(';'), s.regTime||'',
+      s.outcome||'', (s.notes||'').replace(/\n/g,' ')
+    ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(','));
+    download('tcd-control-sessions.csv', [headers.join(','), ...rows].join('\n'), 'text/csv');
+  }
+
+  function exportSummary() {
+    if (sessions.length === 0) { showFlash('No sessions to summarize.', 'var(--neon-pink)'); return; }
+
+    const total = sessions.length;
+    const avgBefore = (sessions.reduce((a,s)=>a+s.before,0)/total).toFixed(2);
+    const avgAfter = (sessions.reduce((a,s)=>a+s.after,0)/total).toFixed(2);
+    const avgDelta = (sessions.reduce((a,s)=>a+s.delta,0)/total).toFixed(2);
+    const pctReduced = ((sessions.filter(s=>s.delta>0).length/total)*100).toFixed(1);
+
+    const byType = {};
+    sessions.forEach(s => {
+      const t = s.stressType || 'unknown';
+      if (!byType[t]) byType[t] = [];
+      byType[t].push(s);
+    });
+
+    const typeBreakdown = Object.entries(byType).map(([type, arr]) => {
+      const avg = (arr.reduce((a,s)=>a+s.delta,0)/arr.length).toFixed(2);
+      return `  ${type}: ${arr.length} sessions, avg reduction ${avg} pts`;
+    }).join('\n');
+
+    const regCount = {};
+    sessions.forEach(s => s.regMethods.forEach(r => { regCount[r] = (regCount[r]||0)+1; }));
+    const topReg = Object.entries(regCount).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} (${v})`).join(', ') || 'None recorded';
+
+    const summary = `TCD TRACKER — CONTROL GROUP SUMMARY
+Generated: ${new Date().toLocaleString()}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OVERVIEW
+Total sessions logged: ${total}
+Average distress BEFORE regulation: ${avgBefore}/10
+Average distress AFTER regulation: ${avgAfter}/10
+Average reduction: ${avgDelta} points
+Sessions showing reduction: ${pctReduced}%
+
+BREAKDOWN BY STRESS TYPE
+${typeBreakdown}
+
+REGULATION METHODS (by frequency)
+${topReg}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Control group data collected via TCD Tracker by Quesito.
+For comparison with plural system data from TCD Tracker (system version).
+All data is self-reported.`;
+
+    document.getElementById('summary-output').style.display = 'block';
+    document.getElementById('summary-text').value = summary;
+  }
+
+  function download(filename, content, type) {
+    const blob = new Blob([content], { type });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function adjustFont(delta) {
+    settings.fontScale = Math.min(1.6, Math.max(0.7, settings.fontScale + delta));
+    saveSettings();
+    applySettings();
+  }
+
+  function toggleContrast(el) {
+    settings.highContrast = el.checked;
+    saveSettings();
+    applySettings();
+  }
+
+  function toggleMotion(el) {
+    settings.reduceMotion = el.checked;
+    saveSettings();
+    applySettings();
+  }
+
+  function applySettings() {
+    document.documentElement.style.setProperty('--font-scale', settings.fontScale);
+    document.body.classList.toggle('high-contrast', settings.highContrast);
+    document.body.classList.toggle('reduce-motion', settings.reduceMotion);
+    document.getElementById('toggle-contrast').checked = settings.highContrast;
+    document.getElementById('toggle-motion').checked = settings.reduceMotion;
+  }
+
+  function saveSettings() {
+    localStorage.setItem('tcd-control-settings', JSON.stringify(settings));
+  }
+
+  function clearAllData() {
+    if (!confirm('This will permanently delete ALL session data. Are you sure?')) return;
+    if (!confirm('Last chance — delete everything?')) return;
+    sessions = [];
+    localStorage.removeItem('tcd-control-sessions');
+    renderHistory();
+    showFlash('All data cleared.', 'var(--neon-pink)');
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  init();
+</script>
+</body>
+</html>
